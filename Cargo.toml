@@ -1,6 +1,6 @@
 [package]
 name = "acme-disk-use"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
 description = "Fast disk usage analyzer with intelligent caching for incremental write workloads"
