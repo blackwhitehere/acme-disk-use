@@ -162,7 +162,7 @@ jobs:
           copy target\${{ matrix.target }}\release\acme-disk-use.exe ${{ matrix.artifact_name }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
