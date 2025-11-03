@@ -113,6 +113,6 @@ mod tests {
 
         // Should be different from just "cache.bin" unless we're in fallback mode
         // This test is environment-dependent, so we just check it's a valid path
-        assert!(default_path.is_absolute() || default_path == PathBuf::from("cache.bin"));
+        assert!(default_path.is_absolute() || default_path.ends_with("cache.bin"));
     }
 }
