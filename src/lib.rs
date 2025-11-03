@@ -71,14 +71,14 @@ pub fn get_default_cache_path() -> PathBuf {
         cache_dir.push(".cache");
         cache_dir.push("acme-disk-use");
         cache_dir.push("cache.bin");
-        return cache_dir;
+        cache_dir
+    } else {
+        // Fallback for systems without HOME
+        let mut cache_dir = PathBuf::from("./.cache/acme-disk-use");
+        std::fs::create_dir_all(&cache_dir).ok(); // Create the directory if it doesn't exist
+        cache_dir.push("cache.bin");
+        cache_dir
     }
-
-    // Fallback for systems without HOME
-    let mut cache_dir = PathBuf::from("./.cache/acme-disk-use");
-    std::fs::create_dir_all(&cache_dir).ok(); // Create the directory if it doesn't exist
-    cache_dir.push("cache.bin");
-    return cache_dir;
 }
 
 /// Logger module for file-based logging
