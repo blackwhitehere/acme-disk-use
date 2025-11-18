@@ -72,6 +72,16 @@ fn prune_deleted_dirs(cached: &mut DirStat) -> bool {
 /// 1. Check if directory's own mtime > last_scan (files/dirs added/removed)
 /// 2. Check if any subdirectory's mtime > last_scan (changes within subdirs)
 /// 3. Recursively validate cached subdirectories
+/// Check if a directory or any of its subdirectories have been modified
+///
+/// Assumes deleted directories have already been pruned via prune_deleted_dirs.
+/// Uses a recursive mtime comparison approach:
+/// 1. Check if directory's own mtime > last_scan (files/dirs added/removed)
+/// 2. Recursively validate cached subdirectories
+///
+/// OPTIMIZATION: We skip reading the directory contents (fs::read_dir) and rely
+/// entirely on the directory's mtime. If files were added or removed, the
+/// directory mtime would have been updated by the OS.
 fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
     // Check if the directory itself was modified
     match fs::metadata(path).and_then(|m| m.modified()) {
@@ -80,36 +90,16 @@ fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
                 return true;
             }
         }
-        Err(_) => return true,
+        Err(_) => return true, // If we can't stat it, assume it changed (or is gone/inaccessible)
     }
 
-    // Check if nested subdirectories are added that do not update mtime
-    match fs::read_dir(path) {
-        Ok(entries) => {
-            for entry in entries.flatten() {
-                let entry_path = entry.path();
-
-                if let Ok(meta) = entry.metadata() {
-                    if meta.is_dir() {
-                        // Check if this directory's mtime is newer than our last scan
-                        if let Ok(dir_mtime) = meta.modified() {
-                            if dir_mtime > cached.last_scan {
-                                return true;
-                            }
-                        }
-
-                        // Handle edge case that when nested subdirectories are added that do not update mtime
-                        // only for cached children as uncached children would be caught above by mtime check
-                        if let Some(child_cache) = cached.children.get(&entry_path) {
-                            if dir_changed_since_last_scan(&entry_path, child_cache) {
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
+    // If directory mtime hasn't changed, we assume no files were added/removed
+    // at this level. However, subdirectories might have changed internally
+    // without updating the parent's mtime.
+    for (child_path, child_stat) in &cached.children {
+        if dir_changed_since_last_scan(child_path, child_stat) {
+            return true;
         }
-        Err(_) => return true,
     }
 
     false
