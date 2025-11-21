@@ -22,6 +22,31 @@ e.g. a directory of model outputs each writing its output to a new daily data di
 - **Human-Readable Output**: Automatically formats sizes in B, KB, MB, GB, or TB
 - **Flexible Cache Location**: Configurable via environment variable or defaults to `~/.cache/acme-disk-use/`
 
+## Design Principle
+
+`acme-disk-use` exploits the write pattern described above—where applications write immutable files into incrementally-created nested directories—to dramatically outperform `du` on repeated scans.
+
+### How It Works
+
+**Traditional tools like `du`** traverse the entire directory tree on every invocation, stat-ing and summing every file regardless of whether anything changed. For large trees with hundreds of thousands of files, this becomes prohibitively expensive.
+
+**`acme-disk-use` takes a different approach:**
+
+1. **Per-Directory Caching**: Computes and caches the total disk usage for each directory separately, storing these aggregates in a compact binary cache
+2. **Smart Invalidation**: On subsequent runs, checks each directory's modification time (mtime) and presence of new subdirectories to identify what has changed
+3. **Selective Re-scanning**: Only re-traverses directories that have been modified or contain new content, reusing cached totals for everything else
+4. **Delta Merging**: Combines the freshly computed sizes from changed directories with cached values from stable directories to produce the final total
+
+### Performance Impact
+
+Because immutable-file workloads rarely modify old directories, the vast majority of the tree remains unchanged between scans. This means:
+
+- **Warm-cache runs** skip full I/O and become dominated by fast metadata checks
+- **Only changed paths** trigger actual file traversal
+- **Cached totals** eliminate redundant work for stable subtrees
+
+The result: `acme-disk-use` with a warm cache is **~10x faster** than `du` on typical workloads (see benchmark results below), since it avoids re-reading files that haven't changed.
+
 ## Installation
 
 ### From crates.io (Recommended)
