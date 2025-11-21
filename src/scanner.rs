@@ -70,13 +70,6 @@ fn prune_deleted_dirs(cached: &mut DirStat) -> bool {
 /// Assumes deleted directories have already been pruned via prune_deleted_dirs.
 /// Uses a recursive mtime comparison approach:
 /// 1. Check if directory's own mtime > last_scan (files/dirs added/removed)
-/// 2. Check if any subdirectory's mtime > last_scan (changes within subdirs)
-/// 3. Recursively validate cached subdirectories
-/// Check if a directory or any of its subdirectories have been modified
-///
-/// Assumes deleted directories have already been pruned via prune_deleted_dirs.
-/// Uses a recursive mtime comparison approach:
-/// 1. Check if directory's own mtime > last_scan (files/dirs added/removed)
 /// 2. Recursively validate cached subdirectories
 ///
 /// OPTIMIZATION: We skip reading the directory contents (fs::read_dir) and rely
