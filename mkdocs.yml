@@ -1,0 +1,21 @@
+site_name: Acme Disk Use
+site_description: A high-performance disk usage analyzer written in Rust.
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - API Reference: link_to_rust_docs  # Placeholder, we'll handle this in CI or just link externally
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences

@@ -158,6 +158,21 @@ $ acme-disk-use clean
 Cache cleared successfully.
 ```
 
+## Benchmark Results
+
+Performance comparison scanning ~220,000 files (nested directory structure):
+
+![Benchmark Graph](benchmark_graph.svg)
+
+| Method | Avg Time (ms) | Notes |
+|--------|---------------|-------|
+| **Rust (Warm Cache)** | **402.08** | Instant result from cache |
+| Rust (Cold Cache) | 4229.38 | Initial scan + cache write |
+| du | 3987.56 | Standard traversal |
+
+> Note: Rust (warm cache) is **~10x faster** than `du` in this scenario.
+
+
 # Development
 
 ## Cargo commands
