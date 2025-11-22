@@ -2,7 +2,7 @@
 name = "acme-disk-use"
 version = "0.1.2"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["guner.stan@gmail.com"]
 description = "Fast disk usage analyzer with intelligent caching for incremental write workloads"
 repository = "https://github.com/blackwhitehere/acme-disk-use"
 homepage = "https://github.com/blackwhitehere/acme-disk-use"

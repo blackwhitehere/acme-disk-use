@@ -3,7 +3,6 @@ import argparse
 import os
 import shutil
 import subprocess
-import sys
 import time
 import statistics
 import platform
@@ -11,7 +10,8 @@ from pathlib import Path
 
 # Configuration
 SCRIPT_DIR = Path(__file__).parent.absolute()
-RUST_BIN = SCRIPT_DIR / "target" / "release" / "acme-disk-use"
+WORKSPACE_ROOT = SCRIPT_DIR.parent
+RUST_BIN = WORKSPACE_ROOT / "target" / "release" / "acme-disk-use"
 BENCHMARK_DIR = SCRIPT_DIR / "benchmark_data"
 CACHE_FILE = Path.home() / ".cache" / "acme-disk-use" / "cache.json"
 
@@ -127,8 +127,17 @@ def verify_correctness():
     log_info("Verifying correctness...")
     
     # Reference (find + stat)
-    # Using a simplified python approach for reference to avoid shell complexity
-    ref_size = sum(f.stat().st_size for f in BENCHMARK_DIR.rglob('*') if f.is_file())
+    # We calculate disk usage (blocks * 512) to match Rust implementation
+    # Note: We only count files because acme-disk-use currently only sums file sizes
+    ref_size = 0
+    try:
+        # st_blocks is number of 512-byte blocks allocated
+        ref_size = sum(f.stat().st_blocks * 512 for f in BENCHMARK_DIR.rglob('*') if f.is_file())
+    except AttributeError:
+        # Fallback for systems without st_blocks (e.g. Windows)
+        # This will likely mismatch if Rust uses a different method, but it's a fallback.
+        ref_size = sum(f.stat().st_size for f in BENCHMARK_DIR.rglob('*') if f.is_file())
+        
     log_info(f"Reference (Python walk): {ref_size} bytes")
 
     # Rust
@@ -187,7 +196,7 @@ REFERENCE:
 
     if not RUST_BIN.exists():
         log_info("Building release binary...")
-        run_command("cargo build --release", cwd=SCRIPT_DIR)
+        run_command("cargo build --release", cwd=WORKSPACE_ROOT)
 
     # Check if we need to create data
     should_create = False
@@ -243,6 +252,28 @@ REFERENCE:
     for r in results:
         print(f"{r['name']:<25} {r['avg']:>10.2f} {r['median']:>10.2f} {r['min']:>10.2f} {r['max']:>10.2f}")
     print("="*60 + "\n")
+
+    # Get stats
+    total_files = sum(1 for _ in BENCHMARK_DIR.rglob('*') if _.is_file())
+    try:
+        total_size = sum(f.stat().st_blocks * 512 for f in BENCHMARK_DIR.rglob('*') if f.is_file())
+    except AttributeError:
+        total_size = sum(f.stat().st_size for f in BENCHMARK_DIR.rglob('*') if f.is_file())
+
+    output_data = {
+        "results": results,
+        "stats": {
+            "total_files": total_files,
+            "total_size": total_size
+        }
+    }
+
+    # Save to JSON
+    import json
+    json_output = SCRIPT_DIR / "benchmark_results.json"
+    with open(json_output, "w") as f:
+        json.dump(output_data, f, indent=2)
+    log_success(f"Results saved to {json_output}")
 
     # Speedup
     rust_warm = next((r['avg'] for r in results if r['name'] == "Rust (warm cache)"), None)

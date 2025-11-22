@@ -1,5 +1,4 @@
 /target
 *.log
 logs/
-data/
-benchmark_data/
+benches/benchmark_data/

@@ -217,11 +217,34 @@ cargo doc --open
 
 ## Release Process
 
-Releases are automated via GitHub Actions:
+Releases are automated via GitHub Actions. We support both stable releases and release candidates.
+
+### Release Candidates (RC)
+
+Use release candidates to test changes before a stable release.
 
 1. **Update version in Cargo.toml:**
    ```toml
-   version = "0.2.0"
+   version = "1.0.0-rc.1"
+   ```
+
+2. **Create and push tag:**
+   ```bash
+   git tag v1.0.0-rc.1
+   git push origin v1.0.0-rc.1
+   ```
+
+3. **GitHub Actions will:**
+   - Validate version match
+   - Build binaries
+   - Run benchmarks and generate performance graph
+   - Create a "Pre-release" on GitHub
+
+### Stable Release
+
+1. **Update version in Cargo.toml:**
+   ```toml
+   version = "1.0.0"
    ```
 
 2. **Update CHANGELOG.md:**
@@ -237,7 +260,7 @@ Releases are automated via GitHub Actions:
 
 4. **Create and push tag:**
    ```bash
-   git tag v0.2.0
+   git tag v1.0.0
    git push origin main --tags
    ```
 
@@ -245,7 +268,8 @@ Releases are automated via GitHub Actions:
    - Run all CI checks
    - Build binaries for all platforms
    - Publish to crates.io
-   - Create GitHub Release
+   - Run benchmarks and generate performance graph
+   - Create a GitHub Release with the benchmark graph included
 
 ## Reporting Issues
 

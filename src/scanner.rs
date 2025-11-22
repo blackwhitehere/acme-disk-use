@@ -9,14 +9,33 @@ use std::{
     time::SystemTime,
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+
+/// Get the physical size of a file on disk in bytes
+///
+/// On Unix systems, this uses the `blocks` metadata field multiplied by 512
+/// to get the actual disk usage, which accounts for sparse files and block alignment.
+/// On non-Unix systems, it falls back to the logical file size.
+fn get_block_size(meta: &fs::Metadata) -> u64 {
+    #[cfg(unix)]
+    {
+        meta.blocks() * 512
+    }
+    #[cfg(not(unix))]
+    {
+        meta.len()
+    }
+}
+
 /// Statistics for a directory and its contents
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DirStat {
-    pub(crate) path: PathBuf,
+    pub(crate) path: PathBuf, // Directory path
     pub(crate) total_size: u64, // Logical sum of st_size of all files
-    pub(crate) file_count: u64,
+    pub(crate) file_count: u64, // Number of files in this directory and subdirectories
     pub(crate) last_scan: SystemTime, // When this subtree was last scanned
-    pub(crate) children: HashMap<PathBuf, DirStat>,
+    pub(crate) children: HashMap<PathBuf, DirStat>, // Child directories' stats
 }
 
 impl DirStat {
@@ -41,39 +60,13 @@ impl DirStat {
     }
 }
 
-/// Prune deleted directories from the cache recursively
-///
-/// Removes any child DirStat entries whose paths no longer exist on disk.
-/// Returns true if any deletions were found and pruned.
-fn prune_deleted_dirs(cached: &mut DirStat) -> bool {
-    let mut found_deletions = false;
-
-    // Check direct children for deletions
-    cached.children.retain(|child_path, child_stat| {
-        if !child_path.exists() {
-            found_deletions = true;
-            false // Remove this entry
-        } else {
-            // Recursively prune this child's children
-            if prune_deleted_dirs(child_stat) {
-                found_deletions = true;
-            }
-            true // Keep this entry
-        }
-    });
-
-    found_deletions
-}
-
 /// Check if a directory or any of its subdirectories have been modified
 ///
-/// Assumes deleted directories have already been pruned via prune_deleted_dirs.
 /// Uses a recursive mtime comparison approach:
 /// 1. Check if directory's own mtime > last_scan (files/dirs added/removed)
 /// 2. Recursively validate cached subdirectories
 ///
-/// OPTIMIZATION: We skip reading the directory contents (fs::read_dir) and rely
-/// entirely on the directory's mtime. If files were added or removed, the
+/// If files were added or removed in subdirectories, the
 /// directory mtime would have been updated by the OS.
 fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
     // Check if the directory itself was modified
@@ -89,13 +82,10 @@ fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
     // If directory mtime hasn't changed, we assume no files were added/removed
     // at this level. However, subdirectories might have changed internally
     // without updating the parent's mtime.
-    for (child_path, child_stat) in &cached.children {
-        if dir_changed_since_last_scan(child_path, child_stat) {
-            return true;
-        }
-    }
-
-    false
+    // Parallelize the check for children
+    cached.children.par_iter().any(|(child_path, child_stat)| {
+        dir_changed_since_last_scan(child_path, child_stat)
+    })
 }
 
 /// Scan a directory recursively and return statistics
@@ -107,42 +97,12 @@ fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
 /// # Returns
 /// Directory statistics including size, file count, and child directories
 pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirStat> {
-    // If cache exists, first prune deleted directories, then check if rescan needed
+    // If cache exists, check if rescan needed BEFORE cloning
     if let Some(cached) = cache {
-        let mut pruned_cache = cached.clone();
-        let had_deletions = prune_deleted_dirs(&mut pruned_cache);
-
-        // If we found deletions, we need to recalculate totals from remaining children
-        if had_deletions {
-            // Recalculate total_size and file_count from remaining children
-            let mut total_size = 0;
-            let mut file_count = 0;
-
-            for child in pruned_cache.children.values() {
-                total_size += child.total_size;
-                file_count += child.file_count;
-            }
-
-            // Count files at this level (not in subdirs)
-            if let Ok(entries) = fs::read_dir(path) {
-                for entry in entries.flatten() {
-                    if let Ok(meta) = entry.metadata() {
-                        if meta.is_file() {
-                            total_size += meta.len();
-                            file_count += 1;
-                        }
-                    }
-                }
-            }
-
-            pruned_cache.total_size = total_size;
-            pruned_cache.file_count = file_count;
-            pruned_cache.last_scan = SystemTime::now();
-        }
-
-        // Now check if directory changed (excluding deletion checks)
-        if !dir_changed_since_last_scan(path, &pruned_cache) {
-            return Ok(pruned_cache);
+        // If directory hasn't changed, return the cached version
+        // This avoids cloning if we are going to discard it anyway
+        if !dir_changed_since_last_scan(path, cached) {
+            return Ok(cached.clone());
         }
     }
 
@@ -160,7 +120,7 @@ pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirSta
         let entry_path = entry.path();
         if let Ok(meta) = entry.metadata() {
             if meta.is_file() {
-                total_size += meta.len();
+                total_size += get_block_size(&meta);
                 file_count += 1;
             } else if meta.is_dir() {
                 subdirs.push(entry_path);
@@ -242,6 +202,10 @@ mod tests {
 
     #[test]
     fn test_scan_directory() -> io::Result<()> {
+        // This test verifies that `scan_directory` correctly calculates the total size
+        // and file count of a directory structure. It checks if the calculated size
+        // is at least the logical size (accounting for block overhead) and if the
+        // file count and subdirectory count match the expected values.
         let temp_dir = TempDir::new()?;
         let test_dir = temp_dir.path().join("test");
         fs::create_dir(&test_dir)?;
@@ -250,8 +214,9 @@ mod tests {
 
         let result = scan_directory(&test_dir, None)?;
 
-        // Expected total: 11 + 12 + 19 + 12 + 17 = 71 bytes
-        assert_eq!(result.total_size(), 71);
+        // Expected total: 11 + 12 + 19 + 12 + 17 = 71 bytes (logical)
+        // With block size, it will be larger.
+        assert!(result.total_size() >= 71);
         assert_eq!(result.file_count(), 5);
         assert_eq!(result.children.len(), 2); // subdir1 and subdir2
 
@@ -260,6 +225,8 @@ mod tests {
 
     #[test]
     fn test_count_files() -> io::Result<()> {
+        // This test verifies that `count_files` correctly counts the total number
+        // of files in a directory tree recursively, without using any cache.
         let temp_dir = TempDir::new()?;
         let test_dir = temp_dir.path().join("test");
         fs::create_dir(&test_dir)?;
@@ -274,6 +241,10 @@ mod tests {
 
     #[test]
     fn test_scan_with_cache() -> io::Result<()> {
+        // This test verifies that the caching mechanism works correctly.
+        // It performs an initial scan, then a second scan with the cache.
+        // It asserts that the second scan reuses the cached result (indicated by
+        // the same `last_scan` timestamp) since the directory hasn't changed.
         let temp_dir = TempDir::new()?;
         let test_dir = temp_dir.path().join("test");
         fs::create_dir(&test_dir)?;
@@ -296,6 +267,10 @@ mod tests {
 
     #[test]
     fn test_detects_new_nested_subdirectory() -> io::Result<()> {
+        // This test ensures that the scanner detects changes deep in the directory tree.
+        // It creates a structure, scans it, then adds a new nested subdirectory and file.
+        // It verifies that the subsequent scan detects the new file and updates the
+        // `last_scan` timestamp, indicating a re-scan occurred.
         use std::thread::sleep;
         use std::time::Duration;
 
@@ -333,6 +308,10 @@ mod tests {
 
     #[test]
     fn test_detects_deleted_subdirectory() -> io::Result<()> {
+        // This test ensures that the scanner detects when a subdirectory is deleted.
+        // It creates a structure, scans it, then deletes a subdirectory.
+        // It verifies that the subsequent scan correctly reports the reduced file count
+        // and updates the `last_scan` timestamp.
         use std::thread::sleep;
         use std::time::Duration;
 
@@ -372,6 +351,10 @@ mod tests {
 
     #[test]
     fn test_prunes_deeply_nested_deleted_directory() -> io::Result<()> {
+        // This test verifies that the scanner correctly handles the deletion of
+        // deeply nested directories. It creates a deep structure, scans it,
+        // then deletes a middle part of the tree. It checks if the cache is
+        // correctly updated to reflect the removal of the nested structure.
         use std::thread::sleep;
         use std::time::Duration;
 

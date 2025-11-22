@@ -90,6 +90,9 @@ mod tests {
 
     #[test]
     fn test_format_size_human_readable() {
+        // This test verifies the `format_size` function with `human_readable = true`.
+        // It checks various byte sizes to ensure they are correctly formatted with
+        // the appropriate units (B, KB, MB, GB, TB) and decimal precision.
         assert_eq!(format_size(0, true), "0 B");
         assert_eq!(format_size(512, true), "512 B");
         assert_eq!(format_size(1024, true), "1.00 KB");
@@ -99,6 +102,8 @@ mod tests {
         assert_eq!(format_size(1024_u64.pow(4), true), "1.00 TB");
 
         // Test non-human-readable format
+        // This verifies that when `human_readable = false`, the function returns
+        // the raw byte count followed by "bytes".
         assert_eq!(format_size(0, false), "0 bytes");
         assert_eq!(format_size(1024, false), "1024 bytes");
         assert_eq!(format_size(1234567, false), "1234567 bytes");
@@ -106,6 +111,9 @@ mod tests {
 
     #[test]
     fn test_default_cache_path() {
+        // This test verifies that `get_default_cache_path` returns a valid path
+        // that ends with "cache.bin". It checks the default behavior for cache
+        // file location resolution.
         let default_path = get_default_cache_path();
 
         // Should end with cache.bin

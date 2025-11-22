@@ -77,7 +77,57 @@ impl CacheManager {
     pub fn get(&self, path: &Path) -> Option<&DirStat> {
         // Normalize path for lookup
         let lookup_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-        self.cache.roots.get(&lookup_path)
+
+        // 1. Try direct lookup in roots
+        if let Some(stat) = self.cache.roots.get(&lookup_path) {
+            return Some(stat);
+        }
+
+        // 2. Search inside roots
+        // Find the root that is a parent of lookup_path with the longest path
+        let mut best_root: Option<&DirStat> = None;
+
+        for root_stat in self.cache.roots.values() {
+            eprintln!("DEBUG: Checking root: {:?}", root_stat.path);
+            if lookup_path.starts_with(&root_stat.path) {
+                match best_root {
+                    None => best_root = Some(root_stat),
+                    Some(current_best) => {
+                        // Pick the more specific root (longer path)
+                        if root_stat.path.components().count()
+                            > current_best.path.components().count()
+                        {
+                            best_root = Some(root_stat);
+                        }
+                    }
+                }
+            }
+        }
+
+        // If we found a containing root, traverse down to find the target
+        if let Some(mut current) = best_root {
+            // We know lookup_path starts with current.path
+            if let Ok(relative) = lookup_path.strip_prefix(&current.path) {
+                let mut path_so_far = current.path.clone();
+
+                for component in relative.components() {
+                    path_so_far.push(component);
+
+                    // Try to find the next child
+                    if let Some(child) = current.children.get(&path_so_far) {
+                        current = child;
+                    } else {
+                        // Path diverges from cache
+                        return None;
+                    }
+                }
+
+                // If we consumed all components, we found it
+                return Some(current);
+            }
+        }
+
+        None
     }
 
     /// Insert or update a directory stat in the cache
@@ -136,6 +186,11 @@ mod tests {
 
     #[test]
     fn test_cache_manager_basic_operations() -> io::Result<()> {
+        // This test verifies the basic operations of the CacheManager:
+        // 1. Inserting a new entry into the cache.
+        // 2. Retrieving an entry from the cache.
+        // 3. Saving the cache to disk.
+        // 4. Loading the cache from disk and verifying the data persists.
         let temp_dir = TempDir::new()?;
         let cache_file = temp_dir.path().join("test_cache.json");
 
@@ -173,6 +228,9 @@ mod tests {
 
     #[test]
     fn test_cache_clear_and_delete() -> io::Result<()> {
+        // This test verifies the cache cleanup operations:
+        // 1. `clear()`: Should remove all entries from the in-memory cache.
+        // 2. `delete()`: Should remove the cache file from the disk.
         let temp_dir = TempDir::new()?;
         let cache_file = temp_dir.path().join("test_cache.json");
 
@@ -196,6 +254,69 @@ mod tests {
         // Test delete
         cache_mgr.delete()?;
         assert!(!cache_file.exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_nested_path() -> io::Result<()> {
+        // This test verifies the nested path retrieval logic.
+        // It creates a cache with a root directory that contains nested children.
+        // It then attempts to retrieve stats for the children directly using `get()`.
+        // This ensures that `get()` can traverse the cached tree structure to find
+        // subdirectories even if they are not top-level roots.
+        let temp_dir = TempDir::new()?;
+        let cache_file = temp_dir.path().join("test_cache.json");
+        let mut cache_mgr = CacheManager::new(&cache_file);
+
+        // Create a nested structure
+        // /root
+        //   /root/child
+        //     /root/child/grandchild
+
+        let grandchild_path = PathBuf::from("/root/child/grandchild");
+        let grandchild_stat = DirStat {
+            path: grandchild_path.clone(),
+            total_size: 10,
+            file_count: 1,
+            last_scan: SystemTime::now(),
+            children: HashMap::new(),
+        };
+
+        let child_path = PathBuf::from("/root/child");
+        let mut child_stat = DirStat {
+            path: child_path.clone(),
+            total_size: 20,
+            file_count: 2,
+            last_scan: SystemTime::now(),
+            children: HashMap::new(),
+        };
+        child_stat.children.insert(grandchild_path.clone(), grandchild_stat);
+
+        let root_path = PathBuf::from("/root");
+        let mut root_stat = DirStat {
+            path: root_path.clone(),
+            total_size: 30,
+            file_count: 3,
+            last_scan: SystemTime::now(),
+            children: HashMap::new(),
+        };
+        root_stat.children.insert(child_path.clone(), child_stat);
+
+        cache_mgr.insert(root_path, root_stat);
+
+        // Test retrieving nested paths
+        let retrieved_child = cache_mgr.get(Path::new("/root/child"));
+        assert!(retrieved_child.is_some());
+        assert_eq!(retrieved_child.unwrap().total_size, 20);
+
+        let retrieved_grandchild = cache_mgr.get(Path::new("/root/child/grandchild"));
+        assert!(retrieved_grandchild.is_some());
+        assert_eq!(retrieved_grandchild.unwrap().total_size, 10);
+
+        // Test non-existent path
+        assert!(cache_mgr.get(Path::new("/root/nonexistent")).is_none());
+        assert!(cache_mgr.get(Path::new("/root/child/nonexistent")).is_none());
 
         Ok(())
     }

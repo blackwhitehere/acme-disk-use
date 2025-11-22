@@ -9,7 +9,7 @@ theme:
 
 nav:
   - Home: index.md
-  - API Reference: link_to_rust_docs  # Placeholder, we'll handle this in CI or just link externally
+  - API Reference: api/acme_disk_use/index.html
 
 markdown_extensions:
   - pymdownx.highlight:

@@ -6,25 +6,23 @@
 [![License](https://img.shields.io/crates/l/acme-disk-use.svg)](LICENSE)
 > Disclaimer: This is alpha software. Interfaces and cache formats may change without notice.
 
-A replacement for `du` for applications that:
-- Mostly write immutable files
-- Occasionaly add a new sub-directory where incremental output directories are written
-- Mostly output their data to incrementaly created directories
-- Need fast repeated disk usage calculations
+A replacement for `du` that:
+- Caches results of prior runs and invalidates the cache using comparison of a directory's `mtime`
+- performs parallel scanning using `rayon`
 
 e.g. a directory of model outputs each writing its output to a new daily data directory
 
 ## Features
 
 - **Caching**: Aggregates disk usage stats at directory level and caches results so they can be reused on next invocation if no change to underlying data is found
-- **Cache Invalidation**: Scans directories that have changed since last scan based on dir's mtime or under which a new sub-directory was created (no matter how nested)
+- **Cache Invalidation**: Scans directories that have changed since last scan based on dir's `mtime` or under which a sub-directory was modified (no matter how nested)
 - **Smart Deletion Detection**: Prunes deleted directories from cache without full rescans
 - **Human-Readable Output**: Automatically formats sizes in B, KB, MB, GB, or TB
 - **Flexible Cache Location**: Configurable via environment variable or defaults to `~/.cache/acme-disk-use/`
 
 ## Design Principle
 
-`acme-disk-use` exploits the write pattern described above—where applications write immutable files into incrementally-created nested directories—to dramatically outperform `du` on repeated scans.
+`acme-disk-use` exploits a write pattern where applications write immutable files into incrementally-created nested directories—to dramatically outperform `du` on repeated scans.
 
 ### How It Works
 
@@ -59,25 +57,25 @@ cargo install acme-disk-use
 
 ### From GitHub Release
 
-Download pre-built binaries for your platform from the [Releases page](https://github.com/yourusername/acme-disk-use/releases):
+Download pre-built binaries for your platform from the [Releases page](https://github.com/blackwhitehere/acme-disk-use/releases):
 
 **Linux (x86_64):**
 ```bash
-wget https://github.com/yourusername/acme-disk-use/releases/latest/download/acme-disk-use-linux-x86_64
+wget https://github.com/blackwhitehere/acme-disk-use/releases/latest/download/acme-disk-use-linux-x86_64
 chmod +x acme-disk-use-linux-x86_64
 sudo mv acme-disk-use-linux-x86_64 /usr/local/bin/acme-disk-use
 ```
 
 **macOS (Intel):**
 ```bash
-curl -LO https://github.com/yourusername/acme-disk-use/releases/latest/download/acme-disk-use-macos-x86_64
+curl -LO https://github.com/blackwhitehere/acme-disk-use/releases/latest/download/acme-disk-use-macos-x86_64
 chmod +x acme-disk-use-macos-x86_64
 sudo mv acme-disk-use-macos-x86_64 /usr/local/bin/acme-disk-use
 ```
 
 **macOS (Apple Silicon):**
 ```bash
-curl -LO https://github.com/yourusername/acme-disk-use/releases/latest/download/acme-disk-use-macos-aarch64
+curl -LO https://github.com/blackwhitehere/acme-disk-use/releases/latest/download/acme-disk-use-macos-aarch64
 chmod +x acme-disk-use-macos-aarch64
 sudo mv acme-disk-use-macos-aarch64 /usr/local/bin/acme-disk-use
 ```
@@ -90,7 +88,7 @@ Download `acme-disk-use-windows-x86_64.exe` from the releases page and add it to
 Clone the repository and build from source:
 
 ```bash
-git clone https://github.com/yourusername/acme-disk-use.git
+git clone https://github.com/blackwhitehere/acme-disk-use.git
 cd acme-disk-use
 cargo build --release
 # Binary will be at target/release/acme-disk-use
@@ -187,15 +185,15 @@ Cache cleared successfully.
 
 Performance comparison scanning ~220,000 files (nested directory structure):
 
-![Benchmark Graph](benchmark_graph.svg)
+![Benchmark Graph](docs/benchmark_graph.svg)
 
 | Method | Avg Time (ms) | Notes |
 |--------|---------------|-------|
-| **Rust (Warm Cache)** | **402.08** | Instant result from cache |
-| Rust (Cold Cache) | 4229.38 | Initial scan + cache write |
-| du | 3987.56 | Standard traversal |
+| **Rust (Warm Cache)** | **36.06** | Instant result from cache |
+| Rust (Cold Cache) | 4459.78 | Initial scan + cache write |
+| du | 4861.26 | Standard traversal |
 
-> Note: Rust (warm cache) is **~10x faster** than `du` in this scenario.
+> Note: Rust (warm cache) is **~135x faster** than `du` in this scenario.
 
 
 # Development

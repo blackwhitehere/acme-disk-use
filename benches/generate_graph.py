@@ -3,30 +3,37 @@ import re
 import sys
 
 def parse_results(filename):
+    import json
     results = {}
-    with open(filename, 'r') as f:
-        content = f.read()
+    stats = {}
+    try:
+        with open(filename, 'r') as f:
+            data = json.load(f)
+            
+        # Handle new format vs old format
+        if isinstance(data, dict) and "results" in data:
+            entries = data["results"]
+            stats = data.get("stats", {})
+        else:
+            entries = data
+            
+        for entry in entries:
+            name = entry['name']
+            avg = entry['avg']
+            
+            if name == "Rust (cold cache)":
+                results["Rust (Cold)"] = avg
+            elif name == "Rust (warm cache)":
+                results["Rust (Warm)"] = avg
+            elif name == "du":
+                results["du"] = avg
+                
+    except Exception as e:
+        print(f"Error reading JSON: {e}")
         
-    # Use regex to find values
-    # Rust (cold cache)            4229.38
-    rust_cold_match = re.search(r"Rust \(cold cache\)\s+([\d\.]+)", content)
-    if rust_cold_match:
-        results["Rust (Cold)"] = float(rust_cold_match.group(1))
-        
-    rust_warm_match = re.search(r"Rust \(warm cache\)\s+([\d\.]+)", content)
-    if rust_warm_match:
-        results["Rust (Warm)"] = float(rust_warm_match.group(1))
-        
-    # du                           3987.56
-    # We need to be careful not to match "Method" line or other things
-    # Look for line starting with "du" followed by spaces and a number
-    du_match = re.search(r"^du\s+([\d\.]+)", content, re.MULTILINE)
-    if du_match:
-        results["du"] = float(du_match.group(1))
-        
-    return results
+    return results, stats
 
-def generate_svg(results, output_file):
+def generate_svg(results, stats, output_file):
     order = ["du", "Rust (Cold)", "Rust (Warm)"]
     
     # Config
@@ -38,6 +45,23 @@ def generate_svg(results, output_file):
     margin_top = 50
     margin_bottom = 30
     
+    # Handle stats subtitle
+    subtitle = ""
+    if stats:
+        files = stats.get("total_files", 0)
+        size = stats.get("total_size", 0)
+        
+        # Format size
+        unit = 'B'
+        for u in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024:
+                unit = u
+                break
+            size /= 1024
+            
+        subtitle = f"Scanned {files:,} files ({size:.2f} {unit})"
+        margin_top = 80 # Increase top margin for subtitle
+
     # Handle empty results
     if not results:
         print("No results to graph")
@@ -54,6 +78,9 @@ def generate_svg(results, output_file):
     svg = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">']
     svg.append(f'<rect width="100%" height="100%" fill="white"/>')
     svg.append(f'<text x="{width/2}" y="30" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="bold">Disk Usage Scan Time (Lower is Better)</text>')
+    
+    if subtitle:
+        svg.append(f'<text x="{width/2}" y="55" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#555">{subtitle}</text>')
     
     y = margin_top
     colors = {"du": "#95a5a6", "Rust (Cold)": "#3498db", "Rust (Warm)": "#2ecc71"}
@@ -81,15 +108,16 @@ def generate_svg(results, output_file):
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        print("Usage: generate_graph.py <results_file> <output_svg>")
+        print("Usage: generate_graph.py <json_results_file> <output_svg>")
         sys.exit(1)
         
-    results = parse_results(sys.argv[1])
+    results, stats = parse_results(sys.argv[1])
     print(f"Parsed results: {results}")
+    print(f"Parsed stats: {stats}")
     
     if not results:
         print("No results found!")
         sys.exit(1)
         
-    generate_svg(results, sys.argv[2])
+    generate_svg(results, stats, sys.argv[2])
     print(f"Generated {sys.argv[2]}")
