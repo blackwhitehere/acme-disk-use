@@ -269,7 +269,7 @@ mod tests {
 
         // Create some files with known content
         fs::write(test_dir.join("file1.txt"), "Hello World")?; // Small file
-        // Create a larger file to ensure multiple blocks
+                                                               // Create a larger file to ensure multiple blocks
         let large_content = vec![0u8; 8192]; // 8KB
         fs::write(test_dir.join("file2.bin"), &large_content)?;
 
@@ -282,47 +282,43 @@ mod tests {
         // Let's use `du -s` which returns 512-byte blocks on macOS/BSD and usually 1024 on GNU/Linux.
         // To be safe, let's use `du -k` and multiply by 1024, but precision might be lost.
         // Better: use `du -B1` on GNU or just check if it's close enough.
-        
+
         // Actually, let's try to match exact block count if possible.
         // On macOS: `du -s` returns 512-byte blocks.
         // On Linux: `du -s` usually returns 1024-byte blocks (check BLOCK_SIZE env).
-        
+
         let output = Command::new("du")
             .arg("-s")
             .arg("-k") // Force 1024-byte blocks for consistency across platforms
             .arg(&test_dir)
             .output()?;
-            
+
         if !output.status.success() {
             // If du fails (e.g. not found), skip the test
             return Ok(());
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let du_kblocks: u64 = stdout
-            .split_whitespace()
-            .next()
-            .unwrap()
-            .parse()
-            .unwrap();
-            
+        let du_kblocks: u64 = stdout.split_whitespace().next().unwrap().parse().unwrap();
+
         let du_bytes = du_kblocks * 1024;
 
         // Allow for some small difference due to block alignment/metadata
         // But ideally they should be very close.
         // Since `du -k` rounds up to nearest 1024, and we sum up 512-byte blocks,
         // our result might be slightly different but comparable.
-        
+
         // Let's just print them for now and assert they are within a reasonable margin (e.g. 4KB)
         println!("Library size: {}, du size: {}", lib_size, du_bytes);
-        
-        let diff = if lib_size > du_bytes {
-            lib_size - du_bytes
-        } else {
-            du_bytes - lib_size
-        };
-        
-        assert!(diff <= 4096, "Library size {} differs significantly from du size {}", lib_size, du_bytes);
+
+        let diff = lib_size.abs_diff(du_bytes);
+
+        assert!(
+            diff <= 4096,
+            "Library size {} differs significantly from du size {}",
+            lib_size,
+            du_bytes
+        );
 
         Ok(())
     }

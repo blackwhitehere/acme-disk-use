@@ -1,7 +1,7 @@
 use acme_disk_use::DiskUse;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
 fn benchmark_real_data(c: &mut Criterion) {
     let mut group = c.benchmark_group("real_data");

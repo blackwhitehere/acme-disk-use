@@ -31,8 +31,8 @@ fn get_block_size(meta: &fs::Metadata) -> u64 {
 /// Statistics for a directory and its contents
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DirStat {
-    pub(crate) path: PathBuf, // Directory path
-    pub(crate) total_size: u64, // Logical sum of st_size of all files
+    pub(crate) path: PathBuf,                       // Directory path
+    pub(crate) total_size: u64,                     // Logical sum of st_size of all files
     pub(crate) file_count: u64, // Number of files in this directory and subdirectories
     pub(crate) last_scan: SystemTime, // When this subtree was last scanned
     pub(crate) children: HashMap<PathBuf, DirStat>, // Child directories' stats
@@ -83,9 +83,10 @@ fn dir_changed_since_last_scan(path: &Path, cached: &DirStat) -> bool {
     // at this level. However, subdirectories might have changed internally
     // without updating the parent's mtime.
     // Parallelize the check for children
-    cached.children.par_iter().any(|(child_path, child_stat)| {
-        dir_changed_since_last_scan(child_path, child_stat)
-    })
+    cached
+        .children
+        .par_iter()
+        .any(|(child_path, child_stat)| dir_changed_since_last_scan(child_path, child_stat))
 }
 
 /// Scan a directory recursively and return statistics

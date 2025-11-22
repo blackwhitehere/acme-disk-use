@@ -291,7 +291,9 @@ mod tests {
             last_scan: SystemTime::now(),
             children: HashMap::new(),
         };
-        child_stat.children.insert(grandchild_path.clone(), grandchild_stat);
+        child_stat
+            .children
+            .insert(grandchild_path.clone(), grandchild_stat);
 
         let root_path = PathBuf::from("/root");
         let mut root_stat = DirStat {
@@ -316,7 +318,9 @@ mod tests {
 
         // Test non-existent path
         assert!(cache_mgr.get(Path::new("/root/nonexistent")).is_none());
-        assert!(cache_mgr.get(Path::new("/root/child/nonexistent")).is_none());
+        assert!(cache_mgr
+            .get(Path::new("/root/child/nonexistent"))
+            .is_none());
 
         Ok(())
     }
