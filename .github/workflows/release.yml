@@ -234,12 +234,9 @@ jobs:
       - name: Create checksums
         run: |
           cd artifacts
-          for dir in */; do
-            cd "$dir"
-            if [ -f checksums.txt ]; then rm checksums.txt; fi
-            sha256sum * > checksums.txt
-            cd ..
-          done
+          # Create a single consolidated checksums file
+          find . -type f \( -name "acme-disk-use-*" -o -name "benchmark_graph.svg" \) -exec sha256sum {} \; | sed 's|^\([^ ]*\)  \./[^/]*/|\1  |' > CHECKSUMS.txt
+          cat CHECKSUMS.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -265,7 +262,7 @@ jobs:
             See [CHANGELOG.md](CHANGELOG.md) for details.
           files: |
             artifacts/*/acme-disk-use-*
-            artifacts/*/checksums.txt
+            artifacts/CHECKSUMS.txt
             artifacts/benchmark-graph/benchmark_graph.svg
           draft: false
           prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
