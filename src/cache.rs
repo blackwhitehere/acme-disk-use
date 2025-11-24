@@ -37,26 +37,19 @@ impl CacheManager {
         }
     }
 
-    /// Load cache from file using binary format (falls back to JSON for compatibility)
+    /// Load cache from file using binary format
     fn load_from_file(cache_path: &Path) -> Cache {
-        // Try binary format first (new format)
         match fs::read(cache_path) {
-            Ok(bytes) => {
-                if let Ok(cache) = bincode::deserialize::<Cache>(&bytes) {
-                    return cache;
+            Ok(bytes) => match bincode::deserialize::<Cache>(&bytes) {
+                Ok(cache) => cache,
+                Err(_) => {
+                    eprintln!(
+                        "Warning: Cache file '{}' is corrupted, starting with empty cache",
+                        cache_path.display()
+                    );
+                    Cache::default()
                 }
-                // Fall back to JSON for backward compatibility
-                if let Ok(s) = String::from_utf8(bytes) {
-                    if let Ok(cache) = serde_json::from_str(&s) {
-                        return cache;
-                    }
-                }
-                eprintln!(
-                    "Warning: Cache file '{}' is corrupted, starting with empty cache",
-                    cache_path.display()
-                );
-                Cache::default()
-            }
+            },
             Err(err) => {
                 // Only log if it's not a "not found" error (expected on first run)
                 if err.kind() != io::ErrorKind::NotFound {

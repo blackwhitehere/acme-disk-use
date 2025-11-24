@@ -86,7 +86,7 @@ impl std::error::Error for DiskUseError {
     }
 }
 
-/// Convert DiskUseError to io::Error for backward compatibility
+/// Convert DiskUseError to io::Error
 impl From<DiskUseError> for io::Error {
     fn from(err: DiskUseError) -> io::Error {
         let err_string = err.to_string();
@@ -120,11 +120,14 @@ fn get_user_friendly_error(err: &io::Error) -> String {
         }
         io::ErrorKind::InvalidInput => "Invalid path or filename".to_string(),
         io::ErrorKind::OutOfMemory => "Out of memory".to_string(),
+        io::ErrorKind::StorageFull => "Disk quota exceeded or insufficient disk space".to_string(),
         _ => {
             // Check for specific error messages in the error string
             let err_str = err.to_string().to_lowercase();
-            if err_str.contains("quota") || err_str.contains("no space") {
-                "Disk quota exceeded or insufficient disk space".to_string()
+            if err_str.contains("quota") || err_str.contains("disk quota") {
+                "Disk quota exceeded. You have reached your storage limit.".to_string()
+            } else if err_str.contains("no space") || err_str.contains("nospc") {
+                "Insufficient disk space available".to_string()
             } else if err_str.contains("read-only") {
                 "The filesystem is read-only".to_string()
             } else if err_str.contains("device") {
@@ -170,9 +173,28 @@ mod tests {
     #[test]
     fn test_disk_quota_detection() {
         let err = io::Error::other("Disk quota exceeded");
-        assert!(get_user_friendly_error(&err).contains("Disk quota exceeded"));
+        let msg = get_user_friendly_error(&err);
+        assert!(
+            msg.contains("quota") || msg.contains("storage limit"),
+            "Expected quota message, got: {}",
+            msg
+        );
 
         let err = io::Error::other("No space left on device");
-        assert!(get_user_friendly_error(&err).contains("quota"));
+        let msg = get_user_friendly_error(&err);
+        assert!(
+            msg.contains("space") || msg.contains("disk"),
+            "Expected space message, got: {}",
+            msg
+        );
+
+        // Test StorageFull error kind
+        let err = io::Error::new(io::ErrorKind::StorageFull, "storage full");
+        let msg = get_user_friendly_error(&err);
+        assert!(
+            msg.contains("quota") || msg.contains("space"),
+            "Expected quota/space message for StorageFull, got: {}",
+            msg
+        );
     }
 }
