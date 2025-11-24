@@ -380,7 +380,7 @@ jobs:
             Download the appropriate binary for your platform from the assets below.
             
             ## Performance
-            ![Benchmark Graph](benchmark_graph.svg)
+            See `benchmark_graph.svg` in the assets for performance benchmarks.
             
             ## What's Changed
             See [CHANGELOG.md](CHANGELOG.md) for details.
