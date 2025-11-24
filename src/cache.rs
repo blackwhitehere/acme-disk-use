@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::error::DiskUseError;
 use crate::scanner::DirStat;
 
 /// Cache structure for storing multiple directory scan results
@@ -39,18 +40,35 @@ impl CacheManager {
     /// Load cache from file using binary format (falls back to JSON for compatibility)
     fn load_from_file(cache_path: &Path) -> Cache {
         // Try binary format first (new format)
-        if let Ok(bytes) = fs::read(cache_path) {
-            if let Ok(cache) = bincode::deserialize::<Cache>(&bytes) {
-                return cache;
-            }
-            // Fall back to JSON for backward compatibility
-            if let Ok(s) = String::from_utf8(bytes) {
-                if let Ok(cache) = serde_json::from_str(&s) {
+        match fs::read(cache_path) {
+            Ok(bytes) => {
+                if let Ok(cache) = bincode::deserialize::<Cache>(&bytes) {
                     return cache;
                 }
+                // Fall back to JSON for backward compatibility
+                if let Ok(s) = String::from_utf8(bytes) {
+                    if let Ok(cache) = serde_json::from_str(&s) {
+                        return cache;
+                    }
+                }
+                eprintln!(
+                    "Warning: Cache file '{}' is corrupted, starting with empty cache",
+                    cache_path.display()
+                );
+                Cache::default()
+            }
+            Err(err) => {
+                // Only log if it's not a "not found" error (expected on first run)
+                if err.kind() != io::ErrorKind::NotFound {
+                    let disk_err = DiskUseError::CacheReadError {
+                        path: cache_path.to_path_buf(),
+                        source: err,
+                    };
+                    eprintln!("Warning: {}", disk_err);
+                }
+                Cache::default()
             }
         }
-        Cache::default()
     }
 
     /// Save cache to file using binary format
@@ -61,14 +79,29 @@ impl CacheManager {
 
         // Ensure parent directory exists
         if let Some(parent) = self.cache_path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent).map_err(|err| {
+                io::Error::from(DiskUseError::CacheWriteError {
+                    path: parent.to_path_buf(),
+                    source: err,
+                })
+            })?;
         }
 
         // Serialize to binary format (much faster than JSON)
-        let bytes = bincode::serialize(&self.cache)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let bytes = bincode::serialize(&self.cache).map_err(|e| {
+            io::Error::from(DiskUseError::CacheSerializationError {
+                path: self.cache_path.clone(),
+                message: e.to_string(),
+            })
+        })?;
 
-        fs::write(&self.cache_path, bytes)?;
+        fs::write(&self.cache_path, bytes).map_err(|err| {
+            io::Error::from(DiskUseError::CacheWriteError {
+                path: self.cache_path.clone(),
+                source: err,
+            })
+        })?;
+
         self.dirty = false;
         Ok(())
     }
@@ -88,7 +121,6 @@ impl CacheManager {
         let mut best_root: Option<&DirStat> = None;
 
         for root_stat in self.cache.roots.values() {
-            eprintln!("DEBUG: Checking root: {:?}", root_stat.path);
             if lookup_path.starts_with(&root_stat.path) {
                 match best_root {
                     None => best_root = Some(root_stat),
@@ -323,5 +355,34 @@ mod tests {
             .is_none());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_cache_write_to_readonly_location() {
+        // Test that writing cache to a readonly location fails gracefully
+        // Note: This test may not work on all platforms or may require special setup
+        let cache_file = PathBuf::from("/dev/null/cannot_write_here");
+        let mut cache_mgr = CacheManager::new(&cache_file);
+
+        let test_stat = DirStat {
+            path: PathBuf::from("/test"),
+            total_size: 100,
+            file_count: 1,
+            last_scan: SystemTime::now(),
+            children: HashMap::new(),
+        };
+
+        cache_mgr.insert(PathBuf::from("/test"), test_stat);
+
+        // Try to save - should fail gracefully
+        let result = cache_mgr.save();
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to write cache file")
+                || err.to_string().contains("Failed to serialize"),
+            "Error message should be descriptive: {}",
+            err
+        );
     }
 }

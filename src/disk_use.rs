@@ -3,6 +3,7 @@
 use std::{io, path::Path};
 
 use crate::cache::CacheManager;
+use crate::error::DiskUseError;
 use crate::scanner::{self, DirStat};
 
 /// Main interface for disk usage analysis with caching support
@@ -45,8 +46,26 @@ impl DiskUse {
     ) -> io::Result<u64> {
         let path = path.as_ref();
 
+        // Check if path exists first
+        if !path.exists() {
+            return Err(io::Error::from(DiskUseError::PathNotFound {
+                path: path.to_path_buf(),
+            }));
+        }
+
         // Normalize path to avoid issues with symlinks and /private on macOS
-        let path_buf = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+        let path_buf = match path.canonicalize() {
+            Ok(p) => p,
+            Err(err) => {
+                // If canonicalization fails (e.g., permission denied), use original path
+                if err.kind() == io::ErrorKind::PermissionDenied {
+                    return Err(io::Error::from(DiskUseError::PermissionDenied {
+                        path: path.to_path_buf(),
+                    }));
+                }
+                path.to_path_buf()
+            }
+        };
 
         // Get existing cache entry for this root (unless ignoring cache)
         let old_entry = if ignore_cache {
@@ -321,5 +340,24 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_scan_nonexistent_directory() {
+        // Test that scanning a nonexistent directory returns an appropriate error
+        let temp_dir = TempDir::new().unwrap();
+        let cache_file = temp_dir.path().join("cache.bin");
+        let mut disk_use = DiskUse::new(&cache_file);
+
+        let nonexistent = "/nonexistent/path/that/does/not/exist";
+        let result = disk_use.scan(nonexistent);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("does not exist"),
+            "Error should indicate path doesn't exist: {}",
+            err
+        );
     }
 }
