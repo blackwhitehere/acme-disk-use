@@ -1,6 +1,6 @@
 # acme-disk-use
 
-[![CI](https://github.com/blackwhitehere/acme-disk-use/workflows/CI/badge.svg)](https://github.com/blackwhitehere/acme-disk-use/actions/workflows/ci.yml)
+[![Pipeline](https://github.com/blackwhitehere/acme-disk-use/workflows/Pipeline/badge.svg)](https://github.com/blackwhitehere/acme-disk-use/actions/workflows/pipeline.yml)
 [![Crates.io](https://img.shields.io/crates/v/acme-disk-use.svg)](https://crates.io/crates/acme-disk-use)
 [![Documentation](https://docs.rs/acme-disk-use/badge.svg)](https://docs.rs/acme-disk-use)
 [![License](https://img.shields.io/crates/l/acme-disk-use.svg)](LICENSE)
@@ -253,24 +253,23 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 5. Format code: `cargo fmt`
 6. Check lints: `cargo clippy --all-targets --all-features -- -D warnings`
 7. Commit and push
-8. Open a pull request against the `develop` branch
+8. Open a pull request against the `main` branch
 
 ## CI/CD
 
 This project uses GitHub Actions for continuous integration and deployment:
 
-- **CI Pipeline** (`ci.yml`): Runs on every push to `develop` and on pull requests
-  - ✓ Code formatting check (`cargo fmt`)
-  - ✓ Linting with clippy (`cargo clippy`)
-  - ✓ Test suite on Linux, macOS, and Windows
-  - ✓ Code coverage reporting
-
-- **Release Pipeline** (`release.yml`): Triggered by version tags (e.g., `v0.1.0`) on `main` branch
-  - ✓ Validates version matches Cargo.toml
-  - ✓ Runs full CI checks
-  - ✓ Publishes to crates.io
-  - ✓ Builds binaries for multiple platforms
-  - ✓ Creates GitHub Release with binaries
+- **Unified Pipeline** (`pipeline.yml`): Handles both CI and Releases
+  - **CI**: Runs on every push to `main` and on pull requests
+    - ✓ Code formatting check (`cargo fmt`)
+    - ✓ Linting with clippy (`cargo clippy`)
+    - ✓ Test suite on Linux and macOS
+  - **Release**: Triggered by version tags (e.g., `v0.1.0`)
+    - ✓ Validates version matches Cargo.toml
+    - ✓ Runs full CI checks
+    - ✓ Publishes to crates.io
+    - ✓ Builds binaries for multiple platforms
+    - ✓ Creates GitHub Release with binaries
 
 **Creating a Release:**
 ```bash

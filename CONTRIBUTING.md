@@ -109,7 +109,7 @@ Closes #42
    - Build must succeed on all platforms
 
 3. **Create a pull request:**
-   - Target the `develop` branch (not `main`)
+   - Target the `main` branch
    - Provide a clear description of changes
    - Reference any related issues
    - Request review from maintainers
@@ -252,19 +252,13 @@ Use release candidates to test changes before a stable release.
    - Add release date
    - Update comparison links
 
-3. **Merge to main:**
-   ```bash
-   git checkout main
-   git merge develop
-   ```
-
-4. **Create and push tag:**
+3. **Create and push tag:**
    ```bash
    git tag v1.0.0
    git push origin main --tags
    ```
 
-5. **GitHub Actions will:**
+4. **GitHub Actions will:**
    - Run all CI checks
    - Build binaries for all platforms
    - Publish to crates.io
