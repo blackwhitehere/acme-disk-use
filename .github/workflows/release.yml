@@ -234,8 +234,8 @@ jobs:
       - name: Create checksums
         run: |
           cd artifacts
-          # Create a single consolidated checksums file
-          find . -type f \( -name "acme-disk-use-*" -o -name "benchmark_graph.svg" \) -exec sha256sum {} \; | sed 's|^\([^ ]*\)  \./[^/]*/|\1  |' > CHECKSUMS.txt
+          # Create a single consolidated checksums file with just filenames
+          find . -type f \( -name "acme-disk-use-*" -o -name "benchmark_graph.svg" \) -exec sha256sum {} \; | sed 's|^\([^ ]*\)  \./\(.*/\)\?|\1  |' > CHECKSUMS.txt
           cat CHECKSUMS.txt
 
       - name: Create Release
