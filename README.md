@@ -1,6 +1,6 @@
 # acme-disk-use
 
-[![Pipeline](https://github.com/blackwhitehere/acme-disk-use/workflows/Pipeline/badge.svg)](https://github.com/blackwhitehere/acme-disk-use/actions/workflows/pipeline.yml)
+[![Pipeline](https://github.com/blackwhitehere/acme-disk-use/workflows/CICD/badge.svg)](https://github.com/blackwhitehere/acme-disk-use/actions/workflows/pipeline.yml)
 [![Crates.io](https://img.shields.io/crates/v/acme-disk-use.svg)](https://crates.io/crates/acme-disk-use)
 [![Documentation](https://docs.rs/acme-disk-use/badge.svg)](https://docs.rs/acme-disk-use)
 [![License](https://img.shields.io/crates/l/acme-disk-use.svg)](LICENSE)
