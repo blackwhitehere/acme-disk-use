@@ -1,6 +1,6 @@
 [package]
 name = "acme-disk-use"
-version = "0.2.2-rc.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["guner.stan@gmail.com"]
 description = "Fast disk usage analyzer with intelligent caching for incremental write workloads"
