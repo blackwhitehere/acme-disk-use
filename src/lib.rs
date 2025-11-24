@@ -5,10 +5,12 @@
 
 mod cache;
 mod disk_use;
+mod error;
 mod scanner;
 
 // Re-export public API
 pub use disk_use::DiskUse;
+pub use error::DiskUseError;
 pub use scanner::DirStat;
 
 use std::{env, path::PathBuf};

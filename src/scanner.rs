@@ -12,6 +12,8 @@ use std::{
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 
+use crate::error::DiskUseError;
+
 /// Get the physical size of a file on disk in bytes
 ///
 /// On Unix systems, this uses the `blocks` metadata field multiplied by 512
@@ -112,19 +114,50 @@ pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirSta
     let mut children = HashMap::new();
 
     // Collect entries first for potential parallel processing
-    let entries: Vec<_> = fs::read_dir(path)?.filter_map(|e| e.ok()).collect();
+    let entries: Vec<_> = match fs::read_dir(path) {
+        Ok(entries) => entries
+            .filter_map(|e| match e {
+                Ok(entry) => Some(entry),
+                Err(err) => {
+                    // Log warning for individual entry read errors but continue
+                    eprintln!(
+                        "Warning: Failed to read directory entry in '{}': {}",
+                        path.display(),
+                        err
+                    );
+                    None
+                }
+            })
+            .collect(),
+        Err(err) => {
+            return Err(io::Error::from(DiskUseError::ScanError {
+                path: path.to_path_buf(),
+                source: err,
+            }));
+        }
+    };
 
     // Process files and collect subdirectories
     let mut subdirs = Vec::new();
 
     for entry in entries {
         let entry_path = entry.path();
-        if let Ok(meta) = entry.metadata() {
-            if meta.is_file() {
-                total_size += get_block_size(&meta);
-                file_count += 1;
-            } else if meta.is_dir() {
-                subdirs.push(entry_path);
+        match entry.metadata() {
+            Ok(meta) => {
+                if meta.is_file() {
+                    total_size += get_block_size(&meta);
+                    file_count += 1;
+                } else if meta.is_dir() {
+                    subdirs.push(entry_path);
+                }
+            }
+            Err(err) => {
+                // Log warning for metadata read errors but continue scanning
+                eprintln!(
+                    "Warning: Failed to read metadata for '{}': {}",
+                    entry_path.display(),
+                    err
+                );
             }
         }
     }
@@ -135,7 +168,14 @@ pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirSta
             .par_iter()
             .filter_map(|entry_path| {
                 let child_cache = cache.and_then(|c| c.children.get(entry_path));
-                scan_directory(entry_path, child_cache).ok()
+                match scan_directory(entry_path, child_cache) {
+                    Ok(stat) => Some(stat),
+                    Err(err) => {
+                        // Log warning for subdirectory scan errors but continue
+                        eprintln!("Warning: Failed to scan subdirectory: {}", err);
+                        None
+                    }
+                }
             })
             .collect();
 
@@ -148,10 +188,16 @@ pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirSta
         // Sequential processing for single subdirectory
         for entry_path in subdirs {
             let child_cache = cache.and_then(|c| c.children.get(&entry_path));
-            if let Ok(child_stat) = scan_directory(&entry_path, child_cache) {
-                total_size += child_stat.total_size;
-                file_count += child_stat.file_count;
-                children.insert(entry_path, child_stat);
+            match scan_directory(&entry_path, child_cache) {
+                Ok(child_stat) => {
+                    total_size += child_stat.total_size;
+                    file_count += child_stat.file_count;
+                    children.insert(entry_path, child_stat);
+                }
+                Err(err) => {
+                    // Log warning for subdirectory scan errors but continue
+                    eprintln!("Warning: Failed to scan subdirectory: {}", err);
+                }
             }
         }
     }
@@ -169,14 +215,47 @@ pub fn scan_directory(path: &Path, cache: Option<&DirStat>) -> io::Result<DirSta
 pub fn count_files(path: &Path) -> io::Result<u64> {
     let mut count = 0;
 
-    for entry in fs::read_dir(path)? {
-        let entry = entry?;
-        let meta = entry.metadata()?;
+    let entries = fs::read_dir(path).map_err(|err| {
+        io::Error::from(DiskUseError::ScanError {
+            path: path.to_path_buf(),
+            source: err,
+        })
+    })?;
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => {
+                eprintln!(
+                    "Warning: Failed to read directory entry in '{}': {}",
+                    path.display(),
+                    err
+                );
+                continue;
+            }
+        };
+
+        let meta = match entry.metadata() {
+            Ok(m) => m,
+            Err(err) => {
+                eprintln!(
+                    "Warning: Failed to read metadata for '{}': {}",
+                    entry.path().display(),
+                    err
+                );
+                continue;
+            }
+        };
 
         if meta.is_file() {
             count += 1;
         } else if meta.is_dir() {
-            count += count_files(&entry.path())?;
+            match count_files(&entry.path()) {
+                Ok(subcount) => count += subcount,
+                Err(err) => {
+                    eprintln!("Warning: Failed to count files in subdirectory: {}", err);
+                }
+            }
         }
     }
 
@@ -396,6 +475,37 @@ mod tests {
             !b_stats.children.contains_key(&test_dir.join("a/b/c")),
             "Deleted directory c should be pruned from cache"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_scan_nonexistent_path() {
+        // Test that scanning a nonexistent path returns an appropriate error
+        let result = scan_directory(Path::new("/nonexistent/path/that/does/not/exist"), None);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Failed to scan directory"),
+            "Error message should be descriptive"
+        );
+    }
+
+    #[test]
+    fn test_count_files_with_inaccessible_subdirectory() -> io::Result<()> {
+        // Test that count_files handles inaccessible subdirectories gracefully
+        let temp_dir = TempDir::new()?;
+        let test_dir = temp_dir.path().join("test");
+        fs::create_dir(&test_dir)?;
+
+        // Create a normal structure
+        fs::write(test_dir.join("file1.txt"), "content")?;
+        fs::create_dir(test_dir.join("subdir"))?;
+        fs::write(test_dir.join("subdir/file2.txt"), "content")?;
+
+        // Count should work and return 2
+        let count = count_files(&test_dir)?;
+        assert_eq!(count, 2);
 
         Ok(())
     }
