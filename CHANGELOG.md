@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1-rc.1] - 2025-11-24
+
+### Fixed
+- Release pipeline: Fixed duplicate checksums.txt upload failure by consolidating into single CHECKSUMS.txt file
+
+## [0.2.0] - 2025-11-22
+
 ### Added
 - Comprehensive benchmarks for different directory sizes (tiny, small, medium, large)
 - CI/CD pipeline with GitHub Actions
@@ -37,5 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Binary cache: 35% smaller than JSON format
 - 260x faster than traditional shell scripting approaches (find + awk)
 
-[Unreleased]: https://github.com/blackwhitehere/acme-disk-use/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/blackwhitehere/acme-disk-use/compare/v0.2.1-rc.1...HEAD
+[0.2.1-rc.1]: https://github.com/blackwhitehere/acme-disk-use/compare/v0.2.0...v0.2.1-rc.1
+[0.2.0]: https://github.com/blackwhitehere/acme-disk-use/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/blackwhitehere/acme-disk-use/releases/tag/v0.1.0
