@@ -32,6 +32,24 @@ When generating code or suggesting changes, ensure they comply with the project'
 - `src/disk_use.rs`: High-level interface combining scanner and cache.
 - `benches/`: Benchmarks using `criterion`.
 
+## Changelog
+
+When making changes to the project, update `CHANGELOG.md` to document the changes:
+
+1.  **Add entries under `[Unreleased]`**: All changes should be added under the `[Unreleased]` section at the top of the changelog.
+2.  **Use the correct category**: Group changes under the appropriate heading:
+    - `Added` for new features.
+    - `Changed` for changes in existing functionality.
+    - `Deprecated` for soon-to-be removed features.
+    - `Removed` for now removed features.
+    - `Fixed` for any bug fixes.
+    - `Security` in case of vulnerabilities.
+    - `Performance` for performance improvements.
+3.  **Write clear descriptions**: Each entry should be a concise, human-readable description of the change.
+4.  **Reference issues/PRs**: When applicable, reference related issues or pull requests.
+
+See [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) for more details on the format.
+
 ## Commit Messages
 
 If asked to generate commit messages, follow the Conventional Commits format as described in `CONTRIBUTING.md`:
