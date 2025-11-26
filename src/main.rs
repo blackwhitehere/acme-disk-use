@@ -186,10 +186,9 @@ fn main() -> io::Result<()> {
             // Format output based on user preference
             if cli.stats {
                 // Get file count for stats
-                let file_count = match disk_use.get_file_count(path, cli.ignore_cache) {
-                    Ok(count) => count,
-                    Err(_) => 0,
-                };
+                let file_count = disk_use
+                    .get_file_count(path, cli.ignore_cache)
+                    .unwrap_or_default();
 
                 let elapsed_secs = elapsed.as_secs_f64();
                 // Use a small epsilon to avoid division by zero for extremely fast scans
