@@ -94,11 +94,8 @@ fn main() -> io::Result<()> {
                 );
             } else {
                 let elapsed_secs = elapsed.as_secs_f64();
-                let files_per_sec = if elapsed_secs > 0.0 {
-                    file_count as f64 / elapsed_secs
-                } else {
-                    file_count as f64
-                };
+                // Use a small epsilon to avoid division by zero for extremely fast scans
+                let files_per_sec = file_count as f64 / elapsed_secs.max(f64::MIN_POSITIVE);
 
                 println!(
                     "Found {} files, total size: {} (scanned in {:.2}s, {:.0} files/s)",
