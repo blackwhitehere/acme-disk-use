@@ -1,5 +1,6 @@
 use std::io;
 use std::path::Path;
+use std::time::Instant;
 
 use acme_disk_use::{format_size, tui, DiskUse};
 use clap::{Parser, Subcommand};
@@ -23,6 +24,10 @@ struct Cli {
     /// Ignore cache and scan fresh
     #[arg(long)]
     ignore_cache: bool,
+
+    /// Suppress timing statistics in output
+    #[arg(short, long)]
+    quiet: bool,
 }
 
 #[derive(Subcommand)]
@@ -107,6 +112,9 @@ fn main() -> io::Result<()> {
                 std::process::exit(1);
             }
 
+            // Start timing the scan
+            let start_time = Instant::now();
+
             // Scan the directory with appropriate options
             let total_size = match disk_use.scan_with_options(path, cli.ignore_cache) {
                 Ok(size) => size,
@@ -125,12 +133,29 @@ fn main() -> io::Result<()> {
                 }
             };
 
+            // Calculate elapsed time
+            let elapsed = start_time.elapsed();
+
             // Format output based on user preference
-            println!(
-                "Found {} files, total size: {}",
-                file_count,
-                format_size(total_size, !cli.non_human_readable)
-            );
+            if cli.quiet {
+                println!(
+                    "Found {} files, total size: {}",
+                    file_count,
+                    format_size(total_size, !cli.non_human_readable)
+                );
+            } else {
+                let elapsed_secs = elapsed.as_secs_f64();
+                // Use a small epsilon to avoid division by zero for extremely fast scans
+                let files_per_sec = file_count as f64 / elapsed_secs.max(f64::MIN_POSITIVE);
+
+                println!(
+                    "Found {} files, total size: {} (scanned in {:.2}s, {:.0} files/s)",
+                    file_count,
+                    format_size(total_size, !cli.non_human_readable),
+                    elapsed_secs,
+                    files_per_sec
+                );
+            }
 
             // Explicitly save cache before exiting (Drop will save too, but be explicit)
             if !cli.ignore_cache {

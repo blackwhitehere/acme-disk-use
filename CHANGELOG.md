@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Timing statistics in output showing scan duration and files/second
+- New `--quiet` / `-q` flag to suppress timing statistics in output
+
 ## [0.2.1-rc.1] - 2025-11-24
 
 ### Fixed

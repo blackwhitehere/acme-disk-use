@@ -133,6 +133,13 @@ acme-disk-use --non-human-readable /path/to/directory
 acme-disk-use --ignore-cache /path/to/directory
 ```
 
+**Suppress timing statistics in output:**
+```bash
+acme-disk-use --quiet /path/to/directory
+# or
+acme-disk-use -q /path/to/directory
+```
+
 **Clean the cache:**
 ```bash
 acme-disk-use clean
@@ -164,17 +171,21 @@ ACME_DISK_USE_CACHE=/tmp/path/to/cache/ acme-disk-use /path/to/directory
 ## Examples
 
 ```bash
-# Scan data directory with human-readable output
+# Scan data directory with human-readable output (shows timing by default)
 $ acme-disk-use data
-Scanned 42 files, total size: 1.25 GB
+Found 42 files, total size: 1.25 GB (scanned in 0.05s, 840 files/s)
 
 # Show exact byte count
 $ acme-disk-use --non-human-readable data
-Scanned 42 files, total size: 1342177280 bytes
+Found 42 files, total size: 1342177280 bytes (scanned in 0.05s, 840 files/s)
 
 # Force fresh scan without using cache
 $ acme-disk-use --ignore-cache data
-Scanned 42 files, total size: 1.25 GB
+Found 42 files, total size: 1.25 GB (scanned in 0.30s, 140 files/s)
+
+# Suppress timing statistics
+$ acme-disk-use --quiet data
+Found 42 files, total size: 1.25 GB
 
 # Clear all cached data
 $ acme-disk-use clean
