@@ -44,21 +44,33 @@ struct App<'a> {
 }
 
 impl<'a> App<'a> {
+    /// Convert a DirStat to a DirEntry
+    fn make_entry(stat: &DirStat) -> DirEntry {
+        DirEntry {
+            path: stat.path().to_path_buf(),
+            name: stat
+                .path()
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| stat.path().display().to_string()),
+            size: stat.total_size(),
+            file_count: stat.file_count(),
+            has_children: !stat.children().is_empty(),
+        }
+    }
+
+    /// Sort entries by size (descending) and select first item
+    fn finalize_entries(&mut self) {
+        self.entries.sort_by(|a, b| b.size.cmp(&a.size));
+        if !self.entries.is_empty() {
+            self.list_state.select(Some(0));
+        } else {
+            self.list_state.select(None);
+        }
+    }
+
     fn new(roots: Vec<&'a DirStat>) -> Self {
-        let entries: Vec<DirEntry> = roots
-            .iter()
-            .map(|stat| DirEntry {
-                path: stat.path().to_path_buf(),
-                name: stat
-                    .path()
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| stat.path().display().to_string()),
-                size: stat.total_size(),
-                file_count: stat.file_count(),
-                has_children: !stat.children().is_empty(),
-            })
-            .collect();
+        let entries: Vec<DirEntry> = roots.iter().map(|stat| Self::make_entry(stat)).collect();
 
         let mut app = Self {
             roots,
@@ -69,14 +81,7 @@ impl<'a> App<'a> {
             should_quit: false,
         };
 
-        // Sort by size descending
-        app.entries.sort_by(|a, b| b.size.cmp(&a.size));
-
-        // Select first item if available
-        if !app.entries.is_empty() {
-            app.list_state.select(Some(0));
-        }
-
+        app.finalize_entries();
         app
     }
 
@@ -96,60 +101,18 @@ impl<'a> App<'a> {
 
     fn populate_entries_from_current(&mut self) {
         if let Some(stat) = self.current {
-            self.entries = stat
-                .children()
-                .values()
-                .map(|child| DirEntry {
-                    path: child.path().to_path_buf(),
-                    name: child
-                        .path()
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| child.path().display().to_string()),
-                    size: child.total_size(),
-                    file_count: child.file_count(),
-                    has_children: !child.children().is_empty(),
-                })
-                .collect();
+            self.entries = stat.children().values().map(Self::make_entry).collect();
         }
-
-        // Sort by size descending
-        self.entries.sort_by(|a, b| b.size.cmp(&a.size));
-
-        // Select first item if available
-        if !self.entries.is_empty() {
-            self.list_state.select(Some(0));
-        } else {
-            self.list_state.select(None);
-        }
+        self.finalize_entries();
     }
 
     fn populate_entries_from_roots(&mut self) {
         self.entries = self
             .roots
             .iter()
-            .map(|stat| DirEntry {
-                path: stat.path().to_path_buf(),
-                name: stat
-                    .path()
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| stat.path().display().to_string()),
-                size: stat.total_size(),
-                file_count: stat.file_count(),
-                has_children: !stat.children().is_empty(),
-            })
+            .map(|stat| Self::make_entry(stat))
             .collect();
-
-        // Sort by size descending
-        self.entries.sort_by(|a, b| b.size.cmp(&a.size));
-
-        // Select first item if available
-        if !self.entries.is_empty() {
-            self.list_state.select(Some(0));
-        } else {
-            self.list_state.select(None);
-        }
+        self.finalize_entries();
     }
 
     fn get_current_path(&self) -> String {
@@ -247,7 +210,7 @@ pub fn run_tui(stat: &DirStat) -> io::Result<()> {
 
     // Main loop
     loop {
-        terminal.draw(|frame| render(&app, frame))?;
+        terminal.draw(|frame| render(&mut app, frame))?;
 
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
@@ -285,7 +248,7 @@ pub fn run_tui_with_roots(roots: Vec<&DirStat>) -> io::Result<()> {
 
     // Main loop
     loop {
-        terminal.draw(|frame| render(&app, frame))?;
+        terminal.draw(|frame| render(&mut app, frame))?;
 
         if let Event::Key(key) = event::read()? {
             if key.kind == KeyEventKind::Press {
@@ -305,7 +268,7 @@ pub fn run_tui_with_roots(roots: Vec<&DirStat>) -> io::Result<()> {
     Ok(())
 }
 
-fn render(app: &App, frame: &mut Frame) {
+fn render(app: &mut App, frame: &mut Frame) {
     let area = frame.area();
 
     // Create layout with header, main content, and footer
@@ -358,7 +321,7 @@ fn render(app: &App, frame: &mut Frame) {
         )
         .highlight_symbol("> ");
 
-    frame.render_stateful_widget(list, chunks[1], &mut app.list_state.clone());
+    frame.render_stateful_widget(list, chunks[1], &mut app.list_state);
 
     // Footer with help text
     let help_text = "↑/k: Up | ↓/j: Down | Enter/→/l: Open | Backspace/←/h: Back | q/Esc: Quit";
