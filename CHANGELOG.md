@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Timing statistics in output showing scan duration and files/second
-- New `--quiet` / `-q` flag to suppress timing statistics in output
+### Changed
+- CLI now uses du-compatible command line options and output format
+  - Added `-h`/`--human-readable` flag for human-readable output (e.g., 1K, 234M, 2G)
+  - Added `-s`/`--summarize` flag (default behavior, for compatibility)
+  - Added `-b`/`--bytes` flag for raw byte output
+  - Output format changed from "Found N files, total size: X" to du-style "SIZE\tPATH"
+  - Default output is now in 1K blocks (like `du`)
+- Removed `--non-human-readable` flag (replaced with `-h` flag logic)
+- Replaced `--quiet` / `-q` flag with `--stats` flag (timing statistics hidden by default, use `--stats` to see them)
 
 ## [0.2.1-rc.1] - 2025-11-24
 

@@ -111,7 +111,7 @@ acme-disk-use --help
 
 ### Basic Usage
 
-Scan current directory:
+Scan current directory (output in 1K blocks like `du`):
 ```bash
 acme-disk-use
 ```
@@ -121,11 +121,21 @@ Scan a specific directory:
 acme-disk-use /path/to/directory
 ```
 
-### Options
+### Options (du-compatible)
 
-**Show raw bytes instead of human-readable sizes:**
+**Human-readable output (`-h`):**
 ```bash
-acme-disk-use --non-human-readable /path/to/directory
+acme-disk-use -h /path/to/directory
+```
+
+**Show raw bytes (`-b`):**
+```bash
+acme-disk-use -b /path/to/directory
+```
+
+**Summarize (`-s`):**
+```bash
+acme-disk-use -s /path/to/directory
 ```
 
 **Ignore cache and scan fresh:**
@@ -133,11 +143,9 @@ acme-disk-use --non-human-readable /path/to/directory
 acme-disk-use --ignore-cache /path/to/directory
 ```
 
-**Suppress timing statistics in output:**
+**Show timing statistics and file count:**
 ```bash
-acme-disk-use --quiet /path/to/directory
-# or
-acme-disk-use -q /path/to/directory
+acme-disk-use --stats /path/to/directory
 ```
 
 **Clean the cache:**
@@ -148,6 +156,18 @@ acme-disk-use clean
 **Show help:**
 ```bash
 acme-disk-use --help
+```
+
+### Cache Commands
+
+**Display an interactive TUI showing cached directory sizes (similar to ncdu):**
+```bash
+acme-disk-use cache show
+```
+
+**Show a specific cached path:**
+```bash
+acme-disk-use cache show /path/to/directory
 ```
 
 ### Configuration
@@ -171,25 +191,28 @@ ACME_DISK_USE_CACHE=/tmp/path/to/cache/ acme-disk-use /path/to/directory
 ## Examples
 
 ```bash
-# Scan data directory with human-readable output (shows timing by default)
+# Scan data directory (default: 1K blocks like du)
 $ acme-disk-use data
-Found 42 files, total size: 1.25 GB (scanned in 0.05s, 840 files/s)
+1294336data
 
-# Show exact byte count
-$ acme-disk-use --non-human-readable data
-Found 42 files, total size: 1342177280 bytes (scanned in 0.05s, 840 files/s)
+# Human-readable output (like du -h)
+$ acme-disk-use -h data
+1.2Gdata
+
+# Show exact byte count (like du -b)
+$ acme-disk-use -b data
+1342177280data
 
 # Force fresh scan without using cache
 $ acme-disk-use --ignore-cache data
-Found 42 files, total size: 1.25 GB (scanned in 0.30s, 140 files/s)
-
-# Suppress timing statistics
-$ acme-disk-use --quiet data
-Found 42 files, total size: 1.25 GB
+1294336data
 
 # Clear all cached data
 $ acme-disk-use clean
 Cache cleared successfully.
+
+# View cached directory sizes in an interactive TUI
+$ acme-disk-use cache show
 ```
 
 ## Benchmark Results
