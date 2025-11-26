@@ -7,6 +7,7 @@ mod cache;
 mod disk_use;
 mod error;
 mod scanner;
+pub mod tui;
 
 // Re-export public API
 pub use disk_use::DiskUse;
