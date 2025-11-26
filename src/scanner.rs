@@ -60,6 +60,11 @@ impl DirStat {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
+    /// Get the child directories
+    pub fn children(&self) -> &HashMap<PathBuf, DirStat> {
+        &self.children
+    }
 }
 
 /// Check if a directory or any of its subdirectories have been modified

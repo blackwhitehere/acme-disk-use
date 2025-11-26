@@ -191,6 +191,16 @@ impl CacheManager {
     pub fn path(&self) -> &Path {
         &self.cache_path
     }
+
+    /// Get all cached root entries
+    pub fn get_roots(&self) -> Vec<&DirStat> {
+        self.cache.roots.values().collect()
+    }
+
+    /// Check if cache is empty (no roots)
+    pub fn is_empty(&self) -> bool {
+        self.cache.roots.is_empty()
+    }
 }
 
 // Implement Drop to auto-save on destruction
