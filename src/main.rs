@@ -1,13 +1,42 @@
 use std::io;
 use std::path::Path;
 
-use acme_disk_use::{format_size, DiskUse};
+use acme_disk_use::DiskUse;
 use clap::{Parser, Subcommand};
+
+/// Format bytes into du-compatible human-readable format (e.g., 1K, 234M, 2G)
+fn format_size_du(bytes: u64) -> String {
+    const UNITS: &[&str] = &["", "K", "M", "G", "T", "P"];
+    const THRESHOLD: f64 = 1024.0;
+
+    if bytes == 0 {
+        return "0".to_string();
+    }
+
+    let mut size = bytes as f64;
+    let mut unit_index = 0;
+
+    while size >= THRESHOLD && unit_index < UNITS.len() - 1 {
+        size /= THRESHOLD;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{}", bytes)
+    } else if size >= 10.0 {
+        // For larger values, show integer (like du)
+        format!("{:.0}{}", size, UNITS[unit_index])
+    } else {
+        // For smaller values, show one decimal (like du)
+        format!("{:.1}{}", size, UNITS[unit_index])
+    }
+}
 
 #[derive(Parser)]
 #[command(name = "acme-disk-use")]
-#[command(about = "A disk usage analyzer with caching support")]
+#[command(about = "A disk usage analyzer with caching support (du-compatible interface)")]
 #[command(version = "0.1.0")]
+#[command(disable_help_flag = true)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -16,13 +45,25 @@ struct Cli {
     #[arg(value_name = "PATH")]
     path: Option<String>,
 
-    /// Show raw bytes instead of human-readable sizes
-    #[arg(long)]
-    non_human_readable: bool,
+    /// Print sizes in human readable format (e.g., 1K 234M 2G)
+    #[arg(short = 'h', long)]
+    human_readable: bool,
+
+    /// Display only a total for each argument (this is the default behavior)
+    #[arg(short = 's', long)]
+    summarize: bool,
+
+    /// Equivalent to '--apparent-size --block-size=1' (show raw bytes)
+    #[arg(short = 'b', long)]
+    bytes: bool,
 
     /// Ignore cache and scan fresh
     #[arg(long)]
     ignore_cache: bool,
+
+    /// Print help information
+    #[arg(long, action = clap::ArgAction::Help)]
+    help: Option<bool>,
 }
 
 #[derive(Subcommand)]
@@ -65,21 +106,25 @@ fn main() -> io::Result<()> {
                 }
             };
 
-            // Get file count using the same ignore_cache setting
-            let file_count = match disk_use.get_file_count(path, cli.ignore_cache) {
-                Ok(count) => count,
-                Err(err) => {
-                    eprintln!("Warning: Failed to get file count: {}", err);
-                    0 // Continue with 0 if count fails
-                }
+            // Determine output format: -b means raw bytes, -h means human-readable
+            // If neither specified, default to 1K blocks like du
+            let human_readable = cli.human_readable;
+            let show_bytes = cli.bytes;
+
+            // Format output in du-compatible style: SIZE\tPATH
+            let size_str = if show_bytes {
+                // -b: show raw bytes
+                format!("{}", total_size)
+            } else if human_readable {
+                // -h: human readable format (e.g., 1K 234M 2G)
+                format_size_du(total_size)
+            } else {
+                // Default: 1K blocks (like du default)
+                let kb = total_size.div_ceil(1024);
+                format!("{}", kb)
             };
 
-            // Format output based on user preference
-            println!(
-                "Found {} files, total size: {}",
-                file_count,
-                format_size(total_size, !cli.non_human_readable)
-            );
+            println!("{}\t{}", size_str, path);
 
             // Explicitly save cache before exiting (Drop will save too, but be explicit)
             if !cli.ignore_cache {
@@ -90,5 +135,37 @@ fn main() -> io::Result<()> {
 
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_size_du() {
+        // Test zero bytes
+        assert_eq!(format_size_du(0), "0");
+
+        // Test bytes (no unit)
+        assert_eq!(format_size_du(512), "512");
+        assert_eq!(format_size_du(1023), "1023");
+
+        // Test kilobytes
+        assert_eq!(format_size_du(1024), "1.0K");
+        assert_eq!(format_size_du(1536), "1.5K");
+        assert_eq!(format_size_du(10240), "10K");
+        assert_eq!(format_size_du(102400), "100K");
+
+        // Test megabytes
+        assert_eq!(format_size_du(1024 * 1024), "1.0M");
+        assert_eq!(format_size_du(10 * 1024 * 1024), "10M");
+
+        // Test gigabytes
+        assert_eq!(format_size_du(1024 * 1024 * 1024), "1.0G");
+        assert_eq!(format_size_du(10 * 1024 * 1024 * 1024), "10G");
+
+        // Test terabytes
+        assert_eq!(format_size_du(1024_u64 * 1024 * 1024 * 1024), "1.0T");
     }
 }

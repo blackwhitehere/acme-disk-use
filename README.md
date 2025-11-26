@@ -111,7 +111,7 @@ acme-disk-use --help
 
 ### Basic Usage
 
-Scan current directory:
+Scan current directory (output in 1K blocks like `du`):
 ```bash
 acme-disk-use
 ```
@@ -121,11 +121,21 @@ Scan a specific directory:
 acme-disk-use /path/to/directory
 ```
 
-### Options
+### Options (du-compatible)
 
-**Show raw bytes instead of human-readable sizes:**
+**Human-readable output (`-h`):**
 ```bash
-acme-disk-use --non-human-readable /path/to/directory
+acme-disk-use -h /path/to/directory
+```
+
+**Show raw bytes (`-b`):**
+```bash
+acme-disk-use -b /path/to/directory
+```
+
+**Summarize (`-s`):**
+```bash
+acme-disk-use -s /path/to/directory
 ```
 
 **Ignore cache and scan fresh:**
@@ -164,17 +174,21 @@ ACME_DISK_USE_CACHE=/tmp/path/to/cache/ acme-disk-use /path/to/directory
 ## Examples
 
 ```bash
-# Scan data directory with human-readable output
+# Scan data directory (default: 1K blocks like du)
 $ acme-disk-use data
-Scanned 42 files, total size: 1.25 GB
+1294336	data
 
-# Show exact byte count
-$ acme-disk-use --non-human-readable data
-Scanned 42 files, total size: 1342177280 bytes
+# Human-readable output (like du -h)
+$ acme-disk-use -h data
+1.2G	data
+
+# Show exact byte count (like du -b)
+$ acme-disk-use -b data
+1342177280	data
 
 # Force fresh scan without using cache
 $ acme-disk-use --ignore-cache data
-Scanned 42 files, total size: 1.25 GB
+1294336	data
 
 # Clear all cached data
 $ acme-disk-use clean
