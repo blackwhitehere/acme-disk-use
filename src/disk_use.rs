@@ -129,6 +129,16 @@ impl DiskUse {
     pub fn cache_path(&self) -> &Path {
         self.cache_manager.path()
     }
+
+    /// Get all cached root directories
+    pub fn get_cached_roots(&self) -> Vec<&DirStat> {
+        self.cache_manager.get_roots()
+    }
+
+    /// Check if the cache is empty
+    pub fn is_cache_empty(&self) -> bool {
+        self.cache_manager.is_empty()
+    }
 }
 
 #[cfg(test)]

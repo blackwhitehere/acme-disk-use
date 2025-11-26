@@ -153,6 +153,18 @@ acme-disk-use clean
 acme-disk-use --help
 ```
 
+### Cache Commands
+
+**Display an interactive TUI showing cached directory sizes (similar to ncdu):**
+```bash
+acme-disk-use cache show
+```
+
+**Show a specific cached path:**
+```bash
+acme-disk-use cache show /path/to/directory
+```
+
 ### Configuration
 
 **Custom cache location:**
@@ -176,23 +188,26 @@ ACME_DISK_USE_CACHE=/tmp/path/to/cache/ acme-disk-use /path/to/directory
 ```bash
 # Scan data directory (default: 1K blocks like du)
 $ acme-disk-use data
-1294336	data
+1294336data
 
 # Human-readable output (like du -h)
 $ acme-disk-use -h data
-1.2G	data
+1.2Gdata
 
 # Show exact byte count (like du -b)
 $ acme-disk-use -b data
-1342177280	data
+1342177280data
 
 # Force fresh scan without using cache
 $ acme-disk-use --ignore-cache data
-1294336	data
+1294336data
 
 # Clear all cached data
 $ acme-disk-use clean
 Cache cleared successfully.
+
+# View cached directory sizes in an interactive TUI
+$ acme-disk-use cache show
 ```
 
 ## Benchmark Results

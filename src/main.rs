@@ -1,7 +1,7 @@
 use std::io;
 use std::path::Path;
 
-use acme_disk_use::DiskUse;
+use acme_disk_use::{tui, DiskUse};
 use clap::{Parser, Subcommand};
 
 /// Format bytes into du-compatible human-readable format (e.g., 1K, 234M, 2G)
@@ -71,6 +71,21 @@ struct Cli {
 enum Commands {
     /// Clean the cache contents
     Clean,
+    /// Cache management commands
+    Cache {
+        #[command(subcommand)]
+        action: CacheCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum CacheCommands {
+    /// Display an interactive TUI showing cached directory sizes (similar to ncdu)
+    Show {
+        /// Optional path to show (if omitted, shows all cached roots)
+        #[arg(value_name = "PATH")]
+        path: Option<String>,
+    },
 }
 
 fn main() -> io::Result<()> {
@@ -87,6 +102,42 @@ fn main() -> io::Result<()> {
             Err(err) => {
                 eprintln!("Error: Failed to clear cache: {}", err);
                 std::process::exit(1);
+            }
+        },
+        Some(Commands::Cache { action }) => match action {
+            CacheCommands::Show { path } => {
+                if disk_use.is_cache_empty() {
+                    eprintln!("Error: Cache is empty. Run a scan first to populate the cache.");
+                    std::process::exit(1);
+                }
+
+                if let Some(path_str) = path {
+                    // Show specific path from cache
+                    let path = Path::new(&path_str);
+                    match disk_use.get_stats(path) {
+                        Some(stat) => {
+                            if let Err(err) = tui::run_tui(stat) {
+                                eprintln!("Error: Failed to run TUI: {}", err);
+                                std::process::exit(1);
+                            }
+                        }
+                        None => {
+                            eprintln!(
+                                "Error: Path '{}' not found in cache. Run a scan on this path first.",
+                                path_str
+                            );
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    // Show all cached roots
+                    let roots = disk_use.get_cached_roots();
+                    if let Err(err) = tui::run_tui_with_roots(roots) {
+                        eprintln!("Error: Failed to run TUI: {}", err);
+                        std::process::exit(1);
+                    }
+                }
+                Ok(())
             }
         },
         None => {

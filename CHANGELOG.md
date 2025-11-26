@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Output format changed from "Found N files, total size: X" to du-style "SIZE\tPATH"
   - Default output is now in 1K blocks (like `du`)
 - Removed `--non-human-readable` flag (replaced with `-h` flag logic)
+- Removed `--quiet` / `-q` flag (timing statistics no longer shown in du-compatible output)
 
 ## [0.2.1-rc.1] - 2025-11-24
 

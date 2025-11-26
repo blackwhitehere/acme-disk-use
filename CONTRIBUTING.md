@@ -99,7 +99,14 @@ Closes #42
 
 1. **Update documentation:**
    - Update README.md if you're adding new features
-   - Update CHANGELOG.md under the `[Unreleased]` section
+   - Update CHANGELOG.md under the `[Unreleased]` section using the appropriate category:
+     - `Added` for new features
+     - `Changed` for changes in existing functionality
+     - `Deprecated` for soon-to-be removed features
+     - `Removed` for now removed features
+     - `Fixed` for any bug fixes
+     - `Security` in case of vulnerabilities
+     - `Performance` for performance improvements
    - Add/update code documentation
 
 2. **Ensure CI passes:**
