@@ -143,6 +143,11 @@ acme-disk-use -s /path/to/directory
 acme-disk-use --ignore-cache /path/to/directory
 ```
 
+**Show timing statistics and file count:**
+```bash
+acme-disk-use --stats /path/to/directory
+```
+
 **Clean the cache:**
 ```bash
 acme-disk-use clean

@@ -1,7 +1,8 @@
 use std::io;
 use std::path::Path;
+use std::time::Instant;
 
-use acme_disk_use::{tui, DiskUse};
+use acme_disk_use::{format_size, tui, DiskUse};
 use clap::{Parser, Subcommand};
 
 /// Format bytes into du-compatible human-readable format (e.g., 1K, 234M, 2G)
@@ -62,9 +63,9 @@ struct Cli {
     #[arg(long)]
     ignore_cache: bool,
 
-    /// Print help information
-    #[arg(long, action = clap::ArgAction::Help)]
-    help: Option<bool>,
+    /// Show timing statistics and file count
+    #[arg(long)]
+    stats: bool,
 }
 
 #[derive(Subcommand)]
@@ -149,6 +150,9 @@ fn main() -> io::Result<()> {
                 std::process::exit(1);
             }
 
+            // Start timing the scan
+            let start_time = Instant::now();
+
             // Scan the directory with appropriate options
             let total_size = match disk_use.scan_with_options(path, cli.ignore_cache) {
                 Ok(size) => size,
@@ -176,7 +180,31 @@ fn main() -> io::Result<()> {
                 format!("{}", kb)
             };
 
-            println!("{}\t{}", size_str, path);
+            // Calculate elapsed time
+            let elapsed = start_time.elapsed();
+
+            // Format output based on user preference
+            if cli.stats {
+                // Get file count for stats
+                let file_count = match disk_use.get_file_count(path, cli.ignore_cache) {
+                    Ok(count) => count,
+                    Err(_) => 0,
+                };
+
+                let elapsed_secs = elapsed.as_secs_f64();
+                // Use a small epsilon to avoid division by zero for extremely fast scans
+                let files_per_sec = file_count as f64 / elapsed_secs.max(f64::MIN_POSITIVE);
+
+                println!(
+                    "Found {} files, total size: {} (scanned in {:.2}s, {:.0} files/s)",
+                    file_count,
+                    format_size(total_size, true),
+                    elapsed_secs,
+                    files_per_sec
+                );
+            } else {
+                println!("{}\t{}", size_str, path);
+            }
 
             // Explicitly save cache before exiting (Drop will save too, but be explicit)
             if !cli.ignore_cache {
