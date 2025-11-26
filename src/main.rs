@@ -49,8 +49,9 @@ struct Cli {
     #[arg(short = 'h', long)]
     human_readable: bool,
 
-    /// Display only a total for each argument (this is the default behavior)
+    /// Display only a total for each argument (du compatibility, this is already the default behavior)
     #[arg(short = 's', long)]
+    #[allow(dead_code)]
     summarize: bool,
 
     /// Equivalent to '--apparent-size --block-size=1' (show raw bytes)
