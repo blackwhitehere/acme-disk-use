@@ -2,3 +2,6 @@
 *.log
 logs/
 benches/benchmark_data/
+
+# OS metadata
+.DS_Store
