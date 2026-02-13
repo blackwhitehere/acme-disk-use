@@ -5,3 +5,6 @@ benches/benchmark_data/
 
 # OS metadata
 .DS_Store
+# DuckDB
+*.duckdb
+*.duckdb.wal
