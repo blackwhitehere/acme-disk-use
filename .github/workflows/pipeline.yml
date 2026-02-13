@@ -184,6 +184,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Get tag version
         id: get_version
@@ -201,6 +203,23 @@ jobs:
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
             echo "This is a stable release"
+          fi
+
+      - name: Validate stable releases are from main branch
+        if: steps.check_prerelease.outputs.is_prerelease == 'false'
+        run: |
+          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
+          echo "Tag commit: $TAG_COMMIT"
+          
+          # Check if the tag commit is on the main branch
+          # Use exact matching to avoid false positives from branch names like 'origin/main-backup'
+          if git branch -r --contains "$TAG_COMMIT" | grep -qE '^\s*origin/main$'; then
+            echo "✓ Tag is on main branch"
+          else
+            echo "Error: Stable releases can only be created from the main branch."
+            echo "The tag ${{ github.ref }} points to commit $TAG_COMMIT which is not on main."
+            echo "For pre-release versions (e.g., v1.0.0-rc.1), releases can be made from any branch."
+            exit 1
           fi
 
       - name: Get Cargo.toml version

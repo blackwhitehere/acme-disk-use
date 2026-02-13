@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Release pipeline: Enforce stable (non-RC) releases to only be created from main branch
+
 ### Changed
 - CLI now uses du-compatible command line options and output format
   - Added `-h`/`--human-readable` flag for human-readable output (e.g., 1K, 234M, 2G)
